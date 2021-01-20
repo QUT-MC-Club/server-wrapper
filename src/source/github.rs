@@ -2,8 +2,8 @@ use serde::Deserialize;
 
 use crate::{cache, config, Error, Result, source};
 
-pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, transform: &config::Transform) -> Result<cache::Reference> {
-    let latest_artifact = get_latest_artifact(owner, repository).await?;
+pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, filter_name: Option<&str>, transform: &config::Transform) -> Result<cache::Reference> {
+    let latest_artifact = get_latest_artifact(owner, repository, filter_name).await?;
 
     if let Some((id, url, name)) = latest_artifact {
         use cache::UpdateResult::*;
@@ -30,12 +30,19 @@ pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, tr
     }
 }
 
-async fn get_latest_artifact(owner: &str, repository: &str) -> Result<Option<(usize, String, String)>> {
+async fn get_latest_artifact(owner: &str, repository: &str, filter_name: Option<&str>) -> Result<Option<(usize, String, String)>> {
     // TODO: we're not handling pagination, which means we rely on results being ordered by newest!
 
     let artifacts = get_artifacts(&owner, &repository).await?;
     let latest_artifact = artifacts.artifacts.into_iter()
         .filter(|artifact| !artifact.expired && artifact.archive_download_url.is_some())
+        .filter(|artifact| {
+            if let Some(filter_name) = filter_name {
+                filter_name == &artifact.name
+            } else {
+                true
+            }
+        })
         .max_by_key(|artifact| artifact.updated_at)
         .and_then(|artifact| {
             let id = artifact.id;
