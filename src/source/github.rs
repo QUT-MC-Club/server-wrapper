@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{cache, config, source, Error, Result};
+use crate::{cache, config, Error, Result, source};
 
 pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, transform: &config::Transform) -> Result<cache::Reference> {
     let latest_artifact = get_latest_artifact(owner, repository).await?;
@@ -26,12 +26,12 @@ pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, tr
             Match(reference) => Ok(reference)
         }
     } else {
-        Err(Error::MissingArtifact)
+        cache.get_existing().ok_or(Error::MissingArtifact)
     }
 }
 
 async fn get_latest_artifact(owner: &str, repository: &str) -> Result<Option<(usize, String, String)>> {
-    // TODO: handle pagination? request less artifacts if it is ordered
+    // TODO: we're not handling pagination, which means we rely on results being ordered by newest!
 
     let artifacts = get_artifacts(&owner, &repository).await?;
     let latest_artifact = artifacts.artifacts.into_iter()

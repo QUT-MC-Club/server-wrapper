@@ -125,9 +125,13 @@ impl<'a> Entry<'a> {
             })
         } else {
             println!("[{}] cache matched! {:?}", self.key, token);
-            let reference = self.loader.get_reference(self.key.clone()).unwrap();
+            let reference = self.loader.get_reference(self.key).unwrap();
             UpdateResult::Match(reference)
         }
+    }
+
+    pub fn get_existing(self) -> Option<Reference> {
+        self.loader.get_reference(self.key)
     }
 
     async fn update(&mut self, token: Token, name: String, bytes: &[u8]) -> io::Result<Reference> {
