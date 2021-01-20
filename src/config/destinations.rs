@@ -140,6 +140,9 @@ pub enum Source {
     Url {
         url: String,
     },
+    Path {
+        path: PathBuf,
+    }
 }
 
 impl Default for Destinations {

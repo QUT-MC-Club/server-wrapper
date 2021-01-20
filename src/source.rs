@@ -6,6 +6,7 @@ use crate::config::{self, Source};
 
 mod github;
 mod http;
+mod path;
 
 pub async fn load<'a>(cache: cache::Entry<'a>, source: &config::Source, transform: &config::Transform) -> Result<cache::Reference> {
     match source {
@@ -16,7 +17,8 @@ pub async fn load<'a>(cache: cache::Entry<'a>, source: &config::Source, transfor
                 _ => Err(Error::MalformedGitHubReference(github.clone())),
             }
         }
-        Source::Url { url } => http::load(cache, url, transform).await
+        Source::Url { url } => http::load(cache, url, transform).await,
+        Source::Path { path } => path::load(cache, path, transform).await,
     }
 }
 
