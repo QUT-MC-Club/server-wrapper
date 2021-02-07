@@ -9,6 +9,8 @@ pub struct Payload {
     pub avatar_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_mentions: Option<AllowedMentions>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub embeds: Vec<Embed>,
 }
 
 impl Payload {
@@ -17,8 +19,15 @@ impl Payload {
             content,
             username: None,
             avatar_url: None,
+            embeds: Vec::new(),
             allowed_mentions: Some(AllowedMentions::sanitized()),
         }
+    }
+}
+
+impl<T: Into<String>> From<T> for Payload {
+    fn from(string: T) -> Self {
+        Payload::new_sanitized(string.into())
     }
 }
 
@@ -33,6 +42,36 @@ impl AllowedMentions {
             parse: Vec::new(),
         }
     }
+}
+
+#[derive(Serialize)]
+pub struct Embed {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(rename = "type")]
+    pub ty: EmbedType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<u32>,
+}
+
+#[derive(Serialize)]
+pub enum EmbedType {
+    #[serde(rename = "rich")]
+    Rich,
+    #[serde(rename = "image")]
+    Image,
+    #[serde(rename = "video")]
+    Video,
+    #[serde(rename = "gifv")]
+    Gifv,
+    #[serde(rename = "article")]
+    Article,
+    #[serde(rename = "link")]
+    Link
 }
 
 #[derive(Clone)]

@@ -85,14 +85,14 @@ impl Loader {
             }
         }
 
-        Ok(Reference { path, name })
+        Ok(Reference { path, name, changed: true })
     }
 
     fn get_reference(&mut self, key: String) -> Option<Reference> {
         self.entries.get(&key).map(|entry| {
             let path = self.path_for(&key);
             let name = entry.file_name.clone();
-            Reference { path, name }
+            Reference { path, name, changed: false }
         })
     }
 
@@ -142,6 +142,7 @@ impl<'a> Entry<'a> {
 pub struct Reference {
     path: PathBuf,
     name: String,
+    changed: bool,
 }
 
 impl Reference {
@@ -150,6 +151,8 @@ impl Reference {
         fs::copy(&self.path, target_path).await?;
         Ok(())
     }
+
+    pub fn changed(&self) -> bool { self.changed  }
 }
 
 pub struct EntryUpdater<'a> {
@@ -176,6 +179,8 @@ pub enum Token {
     ArtifactId(usize),
     #[serde(rename = "unknown")]
     Unknown,
+    #[serde(rename = "sha1")]
+    Sha1([u8; 20])
 }
 
 impl PartialEq for Token {

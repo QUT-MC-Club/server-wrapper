@@ -1,18 +1,18 @@
 #![feature(str_split_once)]
 #![feature(map_into_keys_values)]
 
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use futures::FutureExt;
 use octocrab::OctocrabBuilder;
 use tokio::fs;
 
 pub use config::Config;
 use executor::Executor;
 use status::StatusWriter;
-use futures::FutureExt;
-use std::collections::HashMap;
 
 mod cache;
 mod config;
@@ -44,11 +44,42 @@ pub async fn main() {
         octocrab::initialise(octocrab).expect("failed to initialize github api");
 
         let destinations: Vec<PreparedDestination> = prepare_destinations(destinations.destinations, &status).await;
+
+        let changed_sources: Vec<_> = destinations.iter()
+            .flat_map(|destination| destination.cache_files.iter())
+            .filter(|(_, source)| source.changed())
+            .map(|(name, _)| name.to_owned())
+            .collect();
+
         for destination in destinations {
             destination.apply().await.expect("failed to apply destination");
         }
 
-        status.write("Starting up server...");
+        let payload = if !changed_sources.is_empty() {
+            let mut payload = status::Payload::new_sanitized(String::new());
+
+            let description = format!(
+                "Here's what changed:\n{}",
+                changed_sources.into_iter()
+                    .map(|source| format!(" - `{}`", source))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+
+            payload.embeds.push(status::Embed {
+                title: Some("Server starting up...".to_owned()),
+                ty: status::EmbedType::Rich,
+                description: Some(description),
+                url: None,
+                color: Some(0x00FF00),
+            });
+
+            payload
+        } else {
+            status::Payload::from("Starting up server...")
+        };
+
+        status.write(payload);
 
         let start = Instant::now();
 
@@ -99,7 +130,7 @@ async fn prepare_destination(destination_name: &str, destination: &config::Desti
         for (key, source) in &source_set.sources {
             let cache_entry = cache.entry(key.clone());
             match source::load(cache_entry, source, &source_set.transform).await {
-                Ok(reference) => cache_files.push(reference),
+                Ok(reference) => cache_files.push((key.clone(), reference)),
                 Err(err) => {
                     eprintln!("failed to load {}: {:?}! excluding.", key, err);
                     status.write(format!("Failed to load {}... Excluding!", key));
@@ -118,7 +149,7 @@ async fn prepare_destination(destination_name: &str, destination: &config::Desti
 
 struct PreparedDestination {
     root: PathBuf,
-    cache_files: Vec<cache::Reference>,
+    cache_files: Vec<(String, cache::Reference)>,
 }
 
 impl PreparedDestination {
@@ -129,7 +160,7 @@ impl PreparedDestination {
 
         fs::create_dir_all(&self.root).await?;
 
-        for reference in &self.cache_files {
+        for (_, reference) in &self.cache_files {
             reference.copy_to(&self.root).await?;
         }
 

@@ -1,3 +1,5 @@
+pub use webhook::*;
+
 pub mod webhook;
 
 #[derive(Clone)]
@@ -10,13 +12,12 @@ impl StatusWriter {
         StatusWriter { webhook: None }
     }
 
-    pub fn write(&self, message: impl Into<String>) {
+    pub fn write(&self, message: impl Into<webhook::Payload>) {
         if let Some(webhook) = &self.webhook {
             let webhook = webhook.clone();
-            let message = message.into();
+            let payload = message.into();
 
             tokio::spawn(async move {
-                let payload = webhook::Payload::new_sanitized(message);
                 let result = webhook.post(&payload).await;
 
                 if let Err(err) = result {
