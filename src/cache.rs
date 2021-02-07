@@ -177,10 +177,10 @@ pub enum Token {
     Etag(String),
     #[serde(rename = "artifact")]
     ArtifactId(usize),
+    #[serde(rename = "sha1")]
+    Sha1([u8; 20]),
     #[serde(rename = "unknown")]
     Unknown,
-    #[serde(rename = "sha1")]
-    Sha1([u8; 20])
 }
 
 impl PartialEq for Token {
@@ -189,6 +189,7 @@ impl PartialEq for Token {
         match (self, right) {
             (Etag(left), Etag(right)) => left == right,
             (ArtifactId(left), ArtifactId(right)) => left == right,
+            (Sha1(left), Sha1(right)) => left == right,
             (_, _) => false
         }
     }
