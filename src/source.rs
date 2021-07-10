@@ -10,10 +10,17 @@ mod path;
 
 pub async fn load<'a>(cache: cache::Entry<'a>, source: &config::Source, transform: &config::Transform) -> Result<cache::Reference> {
     match source {
-        Source::GitHubArtifacts { github, artifact } => {
-            let filter_name = artifact.as_ref().map(|artifact| artifact.as_str());
+        Source::GitHubArtifacts { github, workflow, branch, artifact } => {
             match github.split("/").collect::<Vec<&str>>().as_slice() {
-                [owner, repository] => github::load(cache, owner, repository, filter_name, transform).await,
+                [owner, repository] => {
+                    let filter = github::Filter {
+                        workflow: workflow.clone(),
+                        branch: branch.clone(),
+                        artifact: artifact.clone(),
+                    };
+
+                    github::load(cache, owner, repository, filter, transform).await
+                },
                 _ => Err(Error::MalformedGitHubReference(github.clone())),
             }
         }

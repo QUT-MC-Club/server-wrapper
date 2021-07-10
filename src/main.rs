@@ -1,6 +1,3 @@
-#![feature(str_split_once)]
-#![feature(map_into_keys_values)]
-
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};

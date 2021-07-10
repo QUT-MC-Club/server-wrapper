@@ -135,6 +135,8 @@ impl<'de> Deserialize<'de> for Pattern {
 pub enum Source {
     GitHubArtifacts {
         github: String,
+        workflow: Option<String>,
+        branch: Option<String>,
         artifact: Option<String>,
     },
     Url {
