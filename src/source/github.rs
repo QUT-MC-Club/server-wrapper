@@ -49,10 +49,14 @@ async fn get_latest_artifact(client: &Client, owner: &str, repository: &str, fil
         artifacts.sort_by_key(|artifact| cmp::Reverse(artifact.updated_at));
 
         let artifacts = artifacts.into_iter()
-            .filter(|artifact| !artifact.expired)
             .filter(|artifact| filter.test_artifact(&artifact.name));
 
         for artifact in artifacts {
+            // early-exit when we find an expired build: we know nothing older will still be around
+            if artifact.expired {
+                return Ok(None);
+            }
+
             if let Some(url) = artifact.archive_download_url {
                 return Ok(Some((artifact.id, url, artifact.name)));
             }
