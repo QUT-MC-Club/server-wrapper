@@ -3,12 +3,13 @@ use bytes::Bytes;
 use crate::{Error, Result};
 use crate::cache;
 use crate::config::{self, Source};
+use crate::Context;
 
-mod github;
-mod http;
-mod path;
+pub mod github;
+pub mod http;
+pub mod path;
 
-pub async fn load<'a>(cache: cache::Entry<'a>, source: &config::Source, transform: &config::Transform) -> Result<cache::Reference> {
+pub async fn load<'a>(ctx: &Context, cache: cache::Entry<'a>, source: &config::Source, transform: &config::Transform) -> Result<cache::Reference> {
     match source {
         Source::GitHubArtifacts { github, workflow, branch, artifact } => {
             match github.split("/").collect::<Vec<&str>>().as_slice() {
@@ -19,8 +20,8 @@ pub async fn load<'a>(cache: cache::Entry<'a>, source: &config::Source, transfor
                         artifact: artifact.clone(),
                     };
 
-                    github::load(cache, owner, repository, filter, transform).await
-                },
+                    github::load(&ctx.github, cache, owner, repository, filter, transform).await
+                }
                 _ => Err(Error::MalformedGitHubReference(github.clone())),
             }
         }

@@ -1,10 +1,11 @@
+#![feature(once_cell)]
+
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use futures::FutureExt;
-use octocrab::OctocrabBuilder;
 use tokio::fs;
 
 pub use config::Config;
@@ -23,6 +24,12 @@ const MIN_RESTART_INTERVAL: Duration = Duration::from_secs(4 * 60);
 
 // TODO: implement triggers
 
+#[derive(Clone)]
+pub struct Context {
+    pub github: source::github::Client,
+    pub status: StatusWriter,
+}
+
 #[tokio::main]
 pub async fn main() {
     loop {
@@ -34,13 +41,10 @@ pub async fn main() {
             None => StatusWriter::none(),
         };
 
-        let mut octocrab = OctocrabBuilder::new();
-        if let Some(github) = config.tokens.github {
-            octocrab = octocrab.personal_token(github);
-        }
-        octocrab::initialise(octocrab).expect("failed to initialize github api");
+        let github = source::github::Client::new(config.tokens.github.clone());
+        let ctx = Context { github, status };
 
-        let destinations: Vec<PreparedDestination> = prepare_destinations(destinations.destinations, &status).await;
+        let destinations: Vec<PreparedDestination> = prepare_destinations(&ctx, destinations.destinations).await;
 
         let changed_sources: Vec<_> = destinations.iter()
             .flat_map(|destination| destination.cache_files.iter())
@@ -76,7 +80,7 @@ pub async fn main() {
             status::Payload::from("Starting up server...")
         };
 
-        status.write(payload);
+        ctx.status.write(payload);
 
         let start = Instant::now();
 
@@ -92,22 +96,22 @@ pub async fn main() {
             println!("server restarted very quickly! waiting a bit...");
 
             let delay = MIN_RESTART_INTERVAL - interval;
-            status.write(format!("Server restarted too quickly! Waiting for {} seconds...", delay.as_secs()));
+            ctx.status.write(format!("Server restarted too quickly! Waiting for {} seconds...", delay.as_secs()));
 
             tokio::time::sleep(delay.into()).await;
         } else {
-            status.write("Server closed! Restarting...");
+            ctx.status.write("Server closed! Restarting...");
         }
     }
 }
 
-async fn prepare_destinations(destinations: HashMap<String, config::Destination>, status: &StatusWriter) -> Vec<PreparedDestination> {
+async fn prepare_destinations(ctx: &Context, destinations: HashMap<String, config::Destination>) -> Vec<PreparedDestination> {
     let mut futures = Vec::new();
 
     for (destination_name, destination) in destinations {
-        let status = status.clone();
+        let ctx = ctx.clone();
         let future = tokio::spawn(async move {
-            prepare_destination(&destination_name, &destination, &status).await
+            prepare_destination(&ctx, &destination_name, &destination).await
                 .expect(&format!("failed to prepare destination '{}'", destination_name))
         });
         futures.push(future.map(|result| result.unwrap()));
@@ -117,7 +121,7 @@ async fn prepare_destinations(destinations: HashMap<String, config::Destination>
 }
 
 // TODO: load sources concurrently
-async fn prepare_destination(destination_name: &str, destination: &config::Destination, status: &StatusWriter) -> Result<PreparedDestination> {
+async fn prepare_destination(ctx: &Context, destination_name: &str, destination: &config::Destination) -> Result<PreparedDestination> {
     let cache_root = Path::new(CACHE_ROOT).join(destination_name);
 
     let mut cache_files = Vec::with_capacity(destination.sources.len());
@@ -126,11 +130,11 @@ async fn prepare_destination(destination_name: &str, destination: &config::Desti
     for (_, source_set) in &destination.sources {
         for (key, source) in &source_set.sources {
             let cache_entry = cache.entry(key.clone());
-            match source::load(cache_entry, source, &source_set.transform).await {
+            match source::load(ctx, cache_entry, source, &source_set.transform).await {
                 Ok(reference) => cache_files.push((key.clone(), reference)),
                 Err(err) => {
                     eprintln!("failed to load {}: {:?}! excluding.", key, err);
-                    status.write(format!("Failed to load {}... Excluding!", key));
+                    ctx.status.write(format!("Failed to load {}... Excluding!", key));
                 }
             }
         }
@@ -175,8 +179,6 @@ pub enum Error {
     Zip(#[from] zip::result::ZipError),
     #[error("http error")]
     Reqwest(#[from] reqwest::Error),
-    #[error("github error")]
-    Octocrab(#[from] octocrab::Error),
     #[error("malformed github reference")]
     MalformedGitHubReference(String),
     #[error("missing artifact")]

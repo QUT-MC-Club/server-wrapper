@@ -1,11 +1,12 @@
 use std::cmp;
+use std::sync::Arc;
 
 use serde::Deserialize;
 
 use crate::{cache, config, Error, Result, source};
 
-pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, filter: Filter, transform: &config::Transform) -> Result<cache::Reference> {
-    let latest_artifact = get_latest_artifact(owner, repository, filter).await?;
+pub async fn load<'a>(client: &Client, cache: cache::Entry<'a>, owner: &str, repository: &str, filter: Filter, transform: &config::Transform) -> Result<cache::Reference> {
+    let latest_artifact = get_latest_artifact(client, owner, repository, filter).await?;
 
     if let Some((id, url, name)) = latest_artifact {
         use cache::UpdateResult::*;
@@ -13,9 +14,7 @@ pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, fi
             Mismatch(updater) => {
                 let name = format!("{}.zip", name);
 
-                let url = reqwest::Url::parse(&url).unwrap();
-                let response = octocrab::instance()._get(url, None::<&()>).await?;
-
+                let response = client.get(&url).await?;
                 let bytes = response.bytes().await?;
                 let file = source::File { name, bytes };
 
@@ -32,10 +31,10 @@ pub async fn load<'a>(cache: cache::Entry<'a>, owner: &str, repository: &str, fi
     }
 }
 
-async fn get_latest_artifact(owner: &str, repository: &str, filter: Filter) -> Result<Option<(usize, String, String)>> {
+async fn get_latest_artifact(client: &Client, owner: &str, repository: &str, filter: Filter) -> Result<Option<(usize, String, String)>> {
     // TODO: we're not handling pagination, which means we rely on results being ordered by newest!
 
-    let mut workflow_runs = get_workflow_runs(owner, repository).await?.workflow_runs;
+    let mut workflow_runs = client.get_workflow_runs(owner, repository).await?.workflow_runs;
     workflow_runs.sort_by_key(|run| cmp::Reverse(run.updated_at));
 
     let workflow_runs = workflow_runs.into_iter()
@@ -44,12 +43,12 @@ async fn get_latest_artifact(owner: &str, repository: &str, filter: Filter) -> R
 
     for run in workflow_runs {
         let mut artifacts = match &run.artifacts_url {
-            Some(_) => get_artifacts(owner, repository, &run).await?.artifacts,
+            Some(_) => client.get_artifacts(owner, repository, &run).await?.artifacts,
             None => continue,
         };
         artifacts.sort_by_key(|artifact| cmp::Reverse(artifact.updated_at));
 
-        let mut artifacts = artifacts.into_iter()
+        let artifacts = artifacts.into_iter()
             .filter(|artifact| !artifact.expired)
             .filter(|artifact| filter.test_artifact(&artifact.name));
 
@@ -61,16 +60,6 @@ async fn get_latest_artifact(owner: &str, repository: &str, filter: Filter) -> R
     }
 
     Ok(None)
-}
-
-async fn get_workflow_runs(owner: &str, repository: &str) -> Result<WorkflowRunsResponse> {
-    let route = format!("repos/{}/{}/actions/runs", owner, repository);
-    Ok(octocrab::instance().get(route, None::<&()>).await?)
-}
-
-async fn get_artifacts(owner: &str, repository: &str, run: &WorkflowRun) -> Result<ArtifactsResponse> {
-    let route = format!("repos/{}/{}/actions/runs/{}/artifacts", owner, repository, run.id);
-    Ok(octocrab::instance().get(route, None::<&()>).await?)
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +83,52 @@ impl Filter {
     #[inline]
     pub fn test_artifact(&self, artifact: &str) -> bool {
         self.artifact.as_ref().map(|r| r == artifact).unwrap_or(true)
+    }
+}
+
+#[derive(Clone)]
+pub struct Client {
+    client: Arc<reqwest::Client>,
+}
+
+impl Client {
+    const BASE_URL: &'static str = "https://api.github.com";
+
+    pub fn new(token: Option<String>) -> Client {
+        let mut default_headers = reqwest::header::HeaderMap::new();
+
+        if let Some(token) = token {
+            let authorization = format!("Bearer {}", token);
+            default_headers.insert(reqwest::header::AUTHORIZATION, authorization.parse().unwrap());
+        }
+
+        let client = reqwest::Client::builder()
+            .gzip(true)
+            .user_agent("server-wrapper")
+            .default_headers(default_headers)
+            .build()
+            .unwrap();
+
+        Client {
+            client: Arc::new(client)
+        }
+    }
+
+    async fn get_workflow_runs(&self, owner: &str, repository: &str) -> Result<WorkflowRunsResponse> {
+        let url = format!("{}/repos/{}/{}/actions/runs", Client::BASE_URL, owner, repository);
+        let response = self.get(&url).await?;
+        Ok(response.json().await?)
+    }
+
+    async fn get_artifacts(&self, owner: &str, repository: &str, run: &WorkflowRun) -> Result<ArtifactsResponse> {
+        let url = format!("{}/repos/{}/{}/actions/runs/{}/artifacts", Client::BASE_URL, owner, repository, run.id);
+        let response = self.get(&url).await?;
+        Ok(response.json().await?)
+    }
+
+    #[inline]
+    pub async fn get(&self, url: &str) -> Result<reqwest::Response> {
+        Ok(self.client.get(url).send().await?)
     }
 }
 
