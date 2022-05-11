@@ -108,7 +108,7 @@ impl Client {
 
         let client = reqwest::Client::builder()
             .gzip(true)
-            .user_agent("server-wrapper")
+            .user_agent("server-wrapper (https://github.com/NucleoidMC/server-wrapper)")
             .default_headers(default_headers)
             .build()
             .unwrap();

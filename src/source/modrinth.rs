@@ -58,13 +58,7 @@ pub struct Client {
 impl Client {
     const BASE_URL: &'static str = "https://api.modrinth.com";
 
-    pub fn new() -> Client {
-        let client = reqwest::Client::builder()
-            .gzip(true)
-            .user_agent("server-wrapper (https://github.com/NucleoidMC/server-wrapper)")
-            .build()
-            .unwrap();
-
+    pub fn new(client: reqwest::Client) -> Client {
         Client {
             client: Arc::new(client)
         }
