@@ -8,6 +8,7 @@ use crate::Context;
 pub mod github;
 pub mod http;
 pub mod path;
+pub mod modrinth;
 
 pub async fn load<'a>(ctx: &Context, cache: cache::Entry<'a>, source: &config::Source, transform: &config::Transform) -> Result<cache::Reference> {
     match source {
@@ -25,6 +26,8 @@ pub async fn load<'a>(ctx: &Context, cache: cache::Entry<'a>, source: &config::S
                 _ => Err(Error::MalformedGitHubReference(github.clone())),
             }
         }
+        Source::Modrinth { project_id, game_version }
+            => modrinth::load(&ctx.modrinth, cache, project_id, game_version, transform).await,
         Source::Url { url } => http::load(cache, url, transform).await,
         Source::Path { path } => path::load(cache, path, transform).await,
     }

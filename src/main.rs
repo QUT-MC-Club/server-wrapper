@@ -27,6 +27,7 @@ const MIN_RESTART_INTERVAL: Duration = Duration::from_secs(4 * 60);
 #[derive(Clone)]
 pub struct Context {
     pub github: source::github::Client,
+    pub modrinth: source::modrinth::Client,
     pub status: StatusWriter,
 }
 
@@ -42,7 +43,8 @@ pub async fn main() {
         };
 
         let github = source::github::Client::new(config.tokens.github.clone());
-        let ctx = Context { github, status };
+        let modrinth = source::modrinth::Client::new();
+        let ctx = Context { github, modrinth, status };
 
         let destinations: Vec<PreparedDestination> = prepare_destinations(&ctx, destinations.destinations).await;
 
