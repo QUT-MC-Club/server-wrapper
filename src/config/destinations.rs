@@ -139,6 +139,10 @@ pub enum Source {
         branch: Option<String>,
         artifact: Option<String>,
     },
+    Modrinth {
+        project_id: String,
+        game_version: Option<String>,
+    },
     Url {
         url: String,
     },

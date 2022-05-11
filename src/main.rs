@@ -27,6 +27,8 @@ const MIN_RESTART_INTERVAL: Duration = Duration::from_secs(4 * 60);
 #[derive(Clone)]
 pub struct Context {
     pub github: source::github::Client,
+    pub modrinth: source::modrinth::Client,
+    pub client: reqwest::Client,
     pub status: StatusWriter,
 }
 
@@ -41,8 +43,14 @@ pub async fn main() {
             None => StatusWriter::none(),
         };
 
+        let client = reqwest::Client::builder()
+            .gzip(true)
+            .user_agent("server-wrapper (https://github.com/NucleoidMC/server-wrapper)")
+            .build()
+            .unwrap();
         let github = source::github::Client::new(config.tokens.github.clone());
-        let ctx = Context { github, status };
+        let modrinth = source::modrinth::Client::new(client.clone());
+        let ctx = Context { github, modrinth, client, status };
 
         let destinations: Vec<PreparedDestination> = prepare_destinations(&ctx, destinations.destinations).await;
 

@@ -1,7 +1,7 @@
 use crate::{cache, config, Error, Result, source};
 
-pub async fn load<'a>(cache: cache::Entry<'a>, url: &str, transform: &config::Transform) -> Result<cache::Reference> {
-    let response = reqwest::get(url).await?;
+pub async fn load<'a>(client: &reqwest::Client, cache: cache::Entry<'a>, url: &str, transform: &config::Transform) -> Result<cache::Reference> {
+    let response = client.get(url).send().await?;
 
     let etag = response.headers().get(reqwest::header::ETAG)
         .and_then(|etag| etag.to_str().ok());
