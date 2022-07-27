@@ -16,13 +16,13 @@ jobs:
     - id: init
       run: |
         rustup toolchain install stable --profile minimal
-        echo "##[set-output name=sha8;]$(echo ${GITHUB_SHA:0:8})"
+        echo "##[set-output name=sha7;]$(echo ${GITHUB_SHA:0:7})"
     - uses: Swatinem/rust-cache@v2
     - name: Build
       run: cargo build --verbose -r
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
-        name: server-wrapper-${{ steps.init.outputs.sha8 }}
+        name: server-wrapper-${{ steps.init.outputs.sha7 }}
         path: target/release/server-wrapper
 
