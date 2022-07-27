@@ -1,5 +1,3 @@
-#![feature(once_cell)]
-
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
