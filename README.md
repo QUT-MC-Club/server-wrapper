@@ -59,7 +59,7 @@ game-configs = { github = "NucleoidMC/Game-Configs" }
 ```
 
 The basic structure of the destinations file involves the definition of multiple named definitions, where the name can be arbitrary. 
-Each destination declares a target path where all files will be copied into. Importantly, **this directory will be cleared**! Make sure to not add anything important to the directory.
+Each destination declares a target path where all files will be copied into.
 
 Destinations furthermore can declare multiple named sources, where the names are also arbitrary.
 The purpose of separate sources is to provide different transform procedures to files. For example, loading from GitHub Actions may require unzipping the artifacts file and selecting a specific file.

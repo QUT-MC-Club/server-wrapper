@@ -139,7 +139,7 @@ async fn prepare_destination(ctx: &Context, destination_name: &str, destination:
         .map(|s| s.to_owned())
         .collect();
 
-    cache.drop_stale(cache_keys);
+    let stale_files = cache.drop_stale(cache_keys).await?;
 
     for (_, source_set) in &destination.sources {
         for (key, source) in &source_set.sources {
@@ -159,21 +159,25 @@ async fn prepare_destination(ctx: &Context, destination_name: &str, destination:
     Ok(PreparedDestination {
         root: destination.path.clone(),
         cache_files,
+        stale_files,
     })
 }
 
 struct PreparedDestination {
     root: PathBuf,
     cache_files: Vec<(String, cache::Reference)>,
+    stale_files: Vec<cache::Reference>,
 }
 
 impl PreparedDestination {
     async fn apply(&self) -> Result<()> {
         if self.root.exists() {
-            fs::remove_dir_all(&self.root).await?;
+            for reference in &self.stale_files {
+                reference.remove_from(&self.root).await?;
+            }
+        } else {
+            fs::create_dir_all(&self.root).await?;
         }
-
-        fs::create_dir_all(&self.root).await?;
 
         for (_, reference) in &self.cache_files {
             reference.copy_to(&self.root).await?;

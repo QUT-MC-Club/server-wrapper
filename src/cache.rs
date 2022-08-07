@@ -167,9 +167,21 @@ pub struct Reference {
 
 impl Reference {
     pub async fn copy_to<P: AsRef<Path>>(&self, root: P) -> io::Result<()> {
-        let target_path = root.as_ref().join(&self.name);
-        fs::copy(&self.path, target_path).await?;
+        fs::copy(&self.path, self.resolve_target_path(root)).await?;
         Ok(())
+    }
+
+    pub async fn remove_from<P: AsRef<Path>>(&self, root: P) -> io::Result<()> {
+        let target = self.resolve_target_path(root);
+        if target.exists() {
+            fs::remove_file(target).await
+        } else {
+            Ok(())
+        }
+    }
+
+    fn resolve_target_path<P: AsRef<Path>>(&self, root: P) -> PathBuf {
+        root.as_ref().join(&self.name)
     }
 
     pub fn changed(&self) -> bool { self.changed  }
