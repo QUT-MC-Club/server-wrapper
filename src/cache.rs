@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -88,21 +88,41 @@ impl Loader {
         Ok(Reference { path, name, changed: true })
     }
 
-    fn get_reference(&mut self, key: String) -> Option<Reference> {
-        self.entries.get(&key).map(|entry| {
-            let path = self.path_for(&key);
-            let name = entry.file_name.clone();
-            Reference { path, name, changed: false }
-        })
+    fn get_reference(&self, key: &str) -> Option<Reference> {
+        self.entries.get(key).map(|entry| self.reference_for(entry))
+    }
+
+    fn reference_for(&self, entry: &IndexEntry) -> Reference {
+        let path = self.path_for(&entry.key);
+        let name = entry.file_name.clone();
+        Reference { path, name, changed: false }
     }
 
     #[inline]
     fn path_for(&self, key: &str) -> PathBuf {
         self.root.join(key)
     }
+
+    pub async fn drop_stale(&mut self, used: HashSet<String>) -> io::Result<Vec<Reference>> {
+        let stale_entries: Vec<String> = self.entries.values()
+            .filter(|entry| !used.contains(&entry.key))
+            .map(|entry| entry.key.clone())
+            .collect();
+
+        let mut stale_references = Vec::with_capacity(stale_entries.len());
+        for key in stale_entries {
+            let entry = self.entries.remove(&key).unwrap();
+            let reference = self.reference_for(&entry);
+            fs::remove_file(&reference.path).await?;
+
+            stale_references.push(reference);
+        }
+
+        Ok(stale_references)
+    }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct IndexEntry {
     key: String,
     token: Token,
@@ -125,13 +145,13 @@ impl<'a> Entry<'a> {
             })
         } else {
             println!("[{}] cache matched! {:?}", self.key, token);
-            let reference = self.loader.get_reference(self.key).unwrap();
+            let reference = self.loader.get_reference(&self.key).unwrap();
             UpdateResult::Match(reference)
         }
     }
 
     pub fn get_existing(self) -> Option<Reference> {
-        self.loader.get_reference(self.key)
+        self.loader.get_reference(&self.key)
     }
 
     async fn update(&mut self, token: Token, name: String, bytes: &[u8]) -> io::Result<Reference> {

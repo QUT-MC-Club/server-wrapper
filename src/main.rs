@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -133,6 +133,14 @@ async fn prepare_destination(ctx: &Context, destination_name: &str, destination:
     let mut cache_files = Vec::with_capacity(destination.sources.len());
 
     let mut cache = cache::Loader::open(&cache_root).await?;
+
+    let cache_keys: HashSet<String> = destination.sources.values()
+        .flat_map(|source_set| source_set.sources.keys())
+        .map(|s| s.to_owned())
+        .collect();
+
+    cache.drop_stale(cache_keys);
+
     for (_, source_set) in &destination.sources {
         for (key, source) in &source_set.sources {
             let cache_entry = cache.entry(key.clone());
