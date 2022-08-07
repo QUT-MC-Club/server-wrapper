@@ -19,6 +19,8 @@ pub struct Config {
     #[serde(default = "Default::default")]
     pub tokens: Tokens,
     pub triggers: HashMap<String, Trigger>,
+    #[serde(default = "default_min_restart_interval")]
+    pub min_restart_interval_seconds: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -50,9 +52,14 @@ impl Default for Config {
                 let mut triggers = HashMap::new();
                 triggers.insert("startup".to_owned(), Trigger::Startup);
                 triggers
-            }
+            },
+            min_restart_interval_seconds: default_min_restart_interval(),
         }
     }
+}
+
+fn default_min_restart_interval() -> u64 {
+    240
 }
 
 pub async fn load<P, T>(path: P) -> T

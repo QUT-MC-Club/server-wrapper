@@ -18,8 +18,6 @@ mod source;
 
 const CACHE_ROOT: &str = "wrapper_cache";
 
-const MIN_RESTART_INTERVAL: Duration = Duration::from_secs(4 * 60);
-
 // TODO: implement triggers
 
 #[derive(Clone)]
@@ -35,6 +33,8 @@ pub async fn main() {
     loop {
         let config: Config = config::load("config.toml").await;
         let destinations: config::Destinations = config::load("destinations.toml").await;
+
+        let min_restart_interval = Duration::from_secs(config.min_restart_interval_seconds);
 
         let status = match config.status.webhook {
             Some(webhook) => StatusWriter::from(status::webhook::Client::open(webhook)),
@@ -98,10 +98,10 @@ pub async fn main() {
         }
 
         let interval = Instant::now() - start;
-        if interval < MIN_RESTART_INTERVAL {
+        if interval < min_restart_interval {
             println!("server restarted very quickly! waiting a bit...");
 
-            let delay = MIN_RESTART_INTERVAL - interval;
+            let delay = min_restart_interval - interval;
             ctx.status.write(format!("Server restarted too quickly! Waiting for {} seconds...", delay.as_secs()));
 
             tokio::time::sleep(delay.into()).await;
