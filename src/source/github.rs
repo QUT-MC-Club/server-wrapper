@@ -119,7 +119,9 @@ impl Client {
     }
 
     async fn get_workflow_runs(&self, owner: &str, repository: &str) -> Result<WorkflowRunsResponse> {
-        let url = format!("{}/repos/{}/{}/actions/runs", Client::BASE_URL, owner, repository);
+        // Github documents the exclude_pull_requests parameter, but it doesn't seem to have any effect,
+        // so also use event=push to exclude runs with event=pull_request
+        let url = format!("{}/repos/{}/{}/actions/runs?event=push&exclude_pull_requests=true", Client::BASE_URL, owner, repository);
         let response = self.get(&url).await?;
         Ok(response.json().await?)
     }
