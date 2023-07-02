@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::io;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -63,15 +63,18 @@ fn default_min_restart_interval() -> u64 {
 }
 
 pub async fn load<P, T>(path: P) -> T
-    where P: AsRef<Path>,
-          T: Serialize + DeserializeOwned + Default
+where
+    P: AsRef<Path>,
+    T: Serialize + DeserializeOwned + Default,
 {
     let path = path.as_ref();
     if path.exists() {
         read_config(path).await.expect("failed to read config")
     } else {
         let config = T::default();
-        write_config(path, &config).await.expect("failed to write default config");
+        write_config(path, &config)
+            .await
+            .expect("failed to write default config");
         config
     }
 }

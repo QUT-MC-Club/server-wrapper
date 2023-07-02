@@ -9,7 +9,7 @@ use crate::source;
 
 #[derive(Serialize, Deserialize, Default)]
 struct Index {
-    entries: Vec<IndexEntry>
+    entries: Vec<IndexEntry>,
 }
 
 async fn read_cache_index<P: AsRef<Path>>(path: P) -> io::Result<Index> {
@@ -41,7 +41,9 @@ impl Loader {
         }
 
         let index = read_cache_index(&root.join("index.json")).await?;
-        let entries = index.entries.into_iter()
+        let entries = index
+            .entries
+            .into_iter()
             .map(|entry| (entry.key.clone(), entry))
             .collect();
 
@@ -50,11 +52,17 @@ impl Loader {
 
     pub fn entry<K: Into<String>>(&mut self, key: K) -> Entry {
         let key = key.into();
-        let current_token = self.entries.get(&key)
+        let current_token = self
+            .entries
+            .get(&key)
             .map(|entry| entry.token.clone())
             .unwrap_or(Token::Unknown);
 
-        Entry { loader: self, key, current_token }
+        Entry {
+            loader: self,
+            key,
+            current_token,
+        }
     }
 
     pub async fn close(self) -> io::Result<()> {
@@ -63,7 +71,13 @@ impl Loader {
         Ok(())
     }
 
-    async fn update_entry(&mut self, key: String, token: Token, name: String, bytes: &[u8]) -> io::Result<Reference> {
+    async fn update_entry(
+        &mut self,
+        key: String,
+        token: Token,
+        name: String,
+        bytes: &[u8],
+    ) -> io::Result<Reference> {
         let path = self.path_for(&key);
 
         fs::write(&path, bytes).await?;
@@ -85,7 +99,11 @@ impl Loader {
             }
         }
 
-        Ok(Reference { path, name, changed: true })
+        Ok(Reference {
+            path,
+            name,
+            changed: true,
+        })
     }
 
     fn get_reference(&self, key: &str) -> Option<Reference> {
@@ -95,7 +113,11 @@ impl Loader {
     fn reference_for(&self, entry: &IndexEntry) -> Reference {
         let path = self.path_for(&entry.key);
         let name = entry.file_name.clone();
-        Reference { path, name, changed: false }
+        Reference {
+            path,
+            name,
+            changed: false,
+        }
     }
 
     #[inline]
@@ -104,7 +126,9 @@ impl Loader {
     }
 
     pub async fn drop_stale(&mut self, used: HashSet<String>) -> io::Result<Vec<Reference>> {
-        let stale_entries: Vec<String> = self.entries.values()
+        let stale_entries: Vec<String> = self
+            .entries
+            .values()
             .filter(|entry| !used.contains(&entry.key))
             .map(|entry| entry.key.clone())
             .collect();
@@ -138,11 +162,11 @@ pub struct Entry<'a> {
 impl<'a> Entry<'a> {
     pub fn try_update(self, token: Token) -> UpdateResult<'a> {
         if self.current_token != token {
-            println!("[{}] cache mismatched! new: {:?}, old: {:?}", self.key, token, self.current_token);
-            UpdateResult::Mismatch(EntryUpdater {
-                entry: self,
-                token,
-            })
+            println!(
+                "[{}] cache mismatched! new: {:?}, old: {:?}",
+                self.key, token, self.current_token
+            );
+            UpdateResult::Mismatch(EntryUpdater { entry: self, token })
         } else {
             println!("[{}] cache matched! {:?}", self.key, token);
             let reference = self.loader.get_reference(&self.key).unwrap();
@@ -155,7 +179,9 @@ impl<'a> Entry<'a> {
     }
 
     async fn update(&mut self, token: Token, name: String, bytes: &[u8]) -> io::Result<Reference> {
-        self.loader.update_entry(self.key.clone(), token, name, bytes).await
+        self.loader
+            .update_entry(self.key.clone(), token, name, bytes)
+            .await
     }
 }
 
@@ -184,7 +210,9 @@ impl Reference {
         root.as_ref().join(&self.name)
     }
 
-    pub fn changed(&self) -> bool { self.changed  }
+    pub fn changed(&self) -> bool {
+        self.changed
+    }
 }
 
 pub struct EntryUpdater<'a> {
@@ -194,7 +222,9 @@ pub struct EntryUpdater<'a> {
 
 impl<'a> EntryUpdater<'a> {
     pub async fn update(mut self, file: source::File) -> io::Result<Reference> {
-        self.entry.update(self.token, file.name, file.bytes.as_ref()).await
+        self.entry
+            .update(self.token, file.name, file.bytes.as_ref())
+            .await
     }
 }
 
@@ -225,7 +255,7 @@ impl PartialEq for Token {
             (ArtifactId(left), ArtifactId(right)) => left == right,
             (Sha1(left), Sha1(right)) => left == right,
             (Sha512(left), Sha512(right)) => left == right,
-            (_, _) => false
+            (_, _) => false,
         }
     }
 }

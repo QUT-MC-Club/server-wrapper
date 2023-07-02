@@ -38,9 +38,7 @@ pub struct AllowedMentions {
 
 impl AllowedMentions {
     pub fn sanitized() -> AllowedMentions {
-        AllowedMentions {
-            parse: Vec::new(),
-        }
+        AllowedMentions { parse: Vec::new() }
     }
 }
 
@@ -71,7 +69,7 @@ pub enum EmbedType {
     #[serde(rename = "article")]
     Article,
     #[serde(rename = "link")]
-    Link
+    Link,
 }
 
 #[derive(Clone)]
@@ -89,9 +87,7 @@ impl Client {
     }
 
     pub async fn post(&self, payload: &Payload) -> reqwest::Result<()> {
-        self.reqwest.post(&self.url)
-            .json(payload)
-            .send().await?;
+        self.reqwest.post(&self.url).json(payload).send().await?;
         Ok(())
     }
 }

@@ -1,9 +1,16 @@
-use crate::{cache, config, Error, Result, source};
+use crate::{cache, config, source, Error, Result};
 
-pub async fn load<'a>(client: &reqwest::Client, cache: cache::Entry<'a>, url: &str, transform: &config::Transform) -> Result<cache::Reference> {
+pub async fn load<'a>(
+    client: &reqwest::Client,
+    cache: cache::Entry<'a>,
+    url: &str,
+    transform: &config::Transform,
+) -> Result<cache::Reference> {
     let response = client.get(url).send().await?;
 
-    let etag = response.headers().get(reqwest::header::ETAG)
+    let etag = response
+        .headers()
+        .get(reqwest::header::ETAG)
         .and_then(|etag| etag.to_str().ok());
 
     let cache_token = match etag {
@@ -26,7 +33,7 @@ pub async fn load<'a>(client: &reqwest::Client, cache: cache::Entry<'a>, url: &s
                 Err(Error::MissingArtifact)
             }
         }
-        Match(reference) => Ok(reference)
+        Match(reference) => Ok(reference),
     }
 }
 

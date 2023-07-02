@@ -13,8 +13,8 @@ use status::StatusWriter;
 mod cache;
 mod config;
 mod executor;
-mod status;
 mod source;
+mod status;
 
 const CACHE_ROOT: &str = "wrapper_cache";
 
@@ -48,18 +48,28 @@ pub async fn main() {
             .unwrap();
         let github = source::github::Client::new(config.tokens.github.clone());
         let modrinth = source::modrinth::Client::new(client.clone());
-        let ctx = Context { github, modrinth, client, status };
+        let ctx = Context {
+            github,
+            modrinth,
+            client,
+            status,
+        };
 
-        let destinations: Vec<PreparedDestination> = prepare_destinations(&ctx, destinations.destinations).await;
+        let destinations: Vec<PreparedDestination> =
+            prepare_destinations(&ctx, destinations.destinations).await;
 
-        let changed_sources: Vec<_> = destinations.iter()
+        let changed_sources: Vec<_> = destinations
+            .iter()
             .flat_map(|destination| destination.cache_files.iter())
             .filter(|(_, source)| source.changed())
             .map(|(name, _)| name.to_owned())
             .collect();
 
         for destination in destinations {
-            destination.apply().await.expect("failed to apply destination");
+            destination
+                .apply()
+                .await
+                .expect("failed to apply destination");
         }
 
         let payload = if !changed_sources.is_empty() {
@@ -67,7 +77,8 @@ pub async fn main() {
 
             let description = format!(
                 "Here's what changed:\n{}",
-                changed_sources.into_iter()
+                changed_sources
+                    .into_iter()
                     .map(|source| format!(" - `{}`", source))
                     .collect::<Vec<_>>()
                     .join("\n")
@@ -102,7 +113,10 @@ pub async fn main() {
             println!("server restarted very quickly! waiting a bit...");
 
             let delay = min_restart_interval - interval;
-            ctx.status.write(format!("Server restarted too quickly! Waiting for {} seconds...", delay.as_secs()));
+            ctx.status.write(format!(
+                "Server restarted too quickly! Waiting for {} seconds...",
+                delay.as_secs()
+            ));
 
             tokio::time::sleep(delay.into()).await;
         } else {
@@ -111,14 +125,21 @@ pub async fn main() {
     }
 }
 
-async fn prepare_destinations(ctx: &Context, destinations: HashMap<String, config::Destination>) -> Vec<PreparedDestination> {
+async fn prepare_destinations(
+    ctx: &Context,
+    destinations: HashMap<String, config::Destination>,
+) -> Vec<PreparedDestination> {
     let mut futures = Vec::new();
 
     for (destination_name, destination) in destinations {
         let ctx = ctx.clone();
         let future = tokio::spawn(async move {
-            prepare_destination(&ctx, &destination_name, &destination).await
-                .expect(&format!("failed to prepare destination '{}'", destination_name))
+            prepare_destination(&ctx, &destination_name, &destination)
+                .await
+                .expect(&format!(
+                    "failed to prepare destination '{}'",
+                    destination_name
+                ))
         });
         futures.push(future.map(|result| result.unwrap()));
     }
@@ -127,14 +148,20 @@ async fn prepare_destinations(ctx: &Context, destinations: HashMap<String, confi
 }
 
 // TODO: load sources concurrently
-async fn prepare_destination(ctx: &Context, destination_name: &str, destination: &config::Destination) -> Result<PreparedDestination> {
+async fn prepare_destination(
+    ctx: &Context,
+    destination_name: &str,
+    destination: &config::Destination,
+) -> Result<PreparedDestination> {
     let cache_root = Path::new(CACHE_ROOT).join(destination_name);
 
     let mut cache_files = Vec::with_capacity(destination.sources.len());
 
     let mut cache = cache::Loader::open(&cache_root).await?;
 
-    let cache_keys: HashSet<String> = destination.sources.values()
+    let cache_keys: HashSet<String> = destination
+        .sources
+        .values()
         .flat_map(|source_set| source_set.sources.keys())
         .map(|s| s.to_owned())
         .collect();
@@ -148,7 +175,8 @@ async fn prepare_destination(ctx: &Context, destination_name: &str, destination:
                 Ok(reference) => cache_files.push((key.clone(), reference)),
                 Err(err) => {
                     eprintln!("failed to load {}: {:?}! excluding.", key, err);
-                    ctx.status.write(format!("Failed to load {}... Excluding!", key));
+                    ctx.status
+                        .write(format!("Failed to load {}... Excluding!", key));
                 }
             }
         }

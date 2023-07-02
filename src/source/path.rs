@@ -3,9 +3,13 @@ use std::path::PathBuf;
 use bytes::Bytes;
 use tokio::fs;
 
-use crate::{cache, config, Error, Result, source};
+use crate::{cache, config, source, Error, Result};
 
-pub async fn load<'a>(cache: cache::Entry<'a>, path: &PathBuf, transform: &config::Transform) -> Result<cache::Reference> {
+pub async fn load<'a>(
+    cache: cache::Entry<'a>,
+    path: &PathBuf,
+    transform: &config::Transform,
+) -> Result<cache::Reference> {
     let bytes = fs::read(&path).await?;
 
     let mut hasher = sha1::Sha1::new();
@@ -16,7 +20,11 @@ pub async fn load<'a>(cache: cache::Entry<'a>, path: &PathBuf, transform: &confi
     use cache::UpdateResult::*;
     match cache.try_update(cache::Token::Sha1(hash)) {
         Mismatch(updater) => {
-            let name = path.file_name().and_then(|name| name.to_str()).unwrap().to_owned();
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap()
+                .to_owned();
 
             let bytes = Bytes::from(bytes);
 
@@ -28,6 +36,6 @@ pub async fn load<'a>(cache: cache::Entry<'a>, path: &PathBuf, transform: &confi
                 Err(Error::MissingArtifact)
             }
         }
-        Match(reference) => Ok(reference)
+        Match(reference) => Ok(reference),
     }
 }

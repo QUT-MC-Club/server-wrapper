@@ -31,7 +31,7 @@ impl StatusWriter {
 impl From<webhook::Client> for StatusWriter {
     fn from(webhook: webhook::Client) -> Self {
         StatusWriter {
-            webhook: Some(webhook)
+            webhook: Some(webhook),
         }
     }
 }

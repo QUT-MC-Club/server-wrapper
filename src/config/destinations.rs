@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::source;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Destinations {
-    pub destinations: HashMap<String, Destination>
+    pub destinations: HashMap<String, Destination>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,9 +32,7 @@ pub struct SourceSet {
 #[serde(untagged)]
 pub enum Transform {
     Direct,
-    Unzip {
-        unzip: Vec<Pattern>,
-    },
+    Unzip { unzip: Vec<Pattern> },
 }
 
 impl Default for Transform {
@@ -62,14 +60,18 @@ mod transform {
     use super::*;
 
     // TODO: potentially support loading multiple files + directories
-    pub async fn unzip(file: source::File, patterns: &[Pattern]) -> io::Result<Option<source::File>> {
+    pub async fn unzip(
+        file: source::File,
+        patterns: &[Pattern],
+    ) -> io::Result<Option<source::File>> {
         let patterns: Vec<Pattern> = patterns.iter().cloned().collect();
 
         tokio::task::spawn_blocking(move || {
             let cursor = io::Cursor::new(file.bytes.as_ref());
             let mut zip = ZipArchive::new(cursor)?;
 
-            let jar_names: Vec<String> = zip.file_names()
+            let jar_names: Vec<String> = zip
+                .file_names()
                 .filter(|path| matches_all(path, &patterns))
                 .map(|path| path.to_owned())
                 .collect();
@@ -86,7 +88,9 @@ mod transform {
             }
 
             Ok(None)
-        }).await.unwrap()
+        })
+        .await
+        .unwrap()
     }
 
     fn matches_all(path: &str, patterns: &[Pattern]) -> bool {
@@ -148,7 +152,7 @@ pub enum Source {
     },
     Path {
         path: PathBuf,
-    }
+    },
 }
 
 impl Default for Destinations {
