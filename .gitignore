@@ -1,5 +1,6 @@
 /target
 /.idea
+/result
 
 /wrapper_cache
 config.toml
