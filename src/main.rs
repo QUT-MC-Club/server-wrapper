@@ -30,9 +30,12 @@ pub struct Context {
 
 #[tokio::main]
 pub async fn main() {
+    let config_path = std::env::args().nth(1).unwrap_or_else(|| "config.toml".to_owned());
+    let destinations_path = std::env::args().nth(2).unwrap_or_else(|| "destinations.toml".to_owned());
+
     loop {
-        let config: Config = config::load("config.toml").await;
-        let destinations: config::Destinations = config::load("destinations.toml").await;
+        let config: Config = config::load(&config_path).await;
+        let destinations: config::Destinations = config::load(&destinations_path).await;
 
         let min_restart_interval = Duration::from_secs(config.min_restart_interval_seconds);
 

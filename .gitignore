@@ -1,6 +1,7 @@
 /target
 /.idea
 /result
+/.direnv
 
 /wrapper_cache
 config.toml
