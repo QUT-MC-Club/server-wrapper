@@ -4,12 +4,12 @@ use bytes::Bytes;
 use sha1::{Digest, Sha1};
 use tokio::fs;
 
-use crate::{cache, Error, Result, source, Transform};
+use crate::{cache, config, source, Error, Result};
 
 pub async fn load<'a>(
     cache: cache::Entry<'a>,
     path: &PathBuf,
-    transform: &Transform,
+    transform: &config::Transform,
 ) -> Result<cache::Reference> {
     let bytes = fs::read(&path).await?;
 

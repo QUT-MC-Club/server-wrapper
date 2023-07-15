@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use crate::{cache, Error, Result, source, Transform};
+use crate::{cache, config, source, Error, Result};
 
 pub async fn load<'a>(
     client: &Client,
@@ -11,7 +11,7 @@ pub async fn load<'a>(
     owner: &str,
     repository: &str,
     filter: Filter,
-    transform: &Transform,
+    transform: &config::Transform,
 ) -> Result<cache::Reference> {
     let latest_artifact = get_latest_artifact(client, owner, repository, filter).await?;
 

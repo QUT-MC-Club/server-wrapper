@@ -4,14 +4,14 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 
-use crate::{cache, Error, Result, source, Transform};
+use crate::{cache, config, Error, Result, source};
 
 pub async fn load<'a>(
     client: &Client,
     cache: cache::Entry<'a>,
     project_id: &str,
     game_version: &Option<String>,
-    transform: &Transform,
+    transform: &config::Transform,
 ) -> Result<cache::Reference> {
     let latest_version = resolve_version(client, project_id, game_version).await?;
     if let Some((hash, url, name)) = latest_version {

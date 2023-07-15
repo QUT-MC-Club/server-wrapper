@@ -4,7 +4,6 @@ use crate::{Error, Result};
 use crate::cache;
 use crate::config::{self, Source};
 use crate::Context;
-use crate::transform::Transform;
 
 pub mod github;
 pub mod http;
@@ -15,7 +14,7 @@ pub async fn load<'a>(
     ctx: &Context,
     cache: cache::Entry<'a>,
     source: &config::Source,
-    transform: &Transform,
+    transform: &config::Transform,
 ) -> Result<cache::Reference> {
     match source {
         Source::GitHubArtifacts {
