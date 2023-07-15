@@ -28,5 +28,5 @@ jobs:
       uses: actions/upload-artifact@v3.1.0
       with:
         name: server-wrapper-${{ steps.init.outputs.sha7 }}
-        path: target/release/server-wrapper
+        path: target/x86_64-unknown-linux-musl/release/server-wrapper
 
