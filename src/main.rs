@@ -82,7 +82,7 @@ pub async fn main() {
                 "Here's what changed:\n{}",
                 changed_sources
                     .into_iter()
-                    .map(|source| format!(" - `{}`", source))
+                    .map(|source| format!("- `{}`", source))
                     .collect::<Vec<_>>()
                     .join("\n")
             );
