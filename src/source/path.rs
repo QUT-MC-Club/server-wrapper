@@ -1,21 +1,23 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
+use sha1::{Digest, Sha1};
 use tokio::fs;
 
-use crate::{cache, config, source, Error, Result};
+use crate::{cache, Error, Result, source, Transform};
 
 pub async fn load<'a>(
     cache: cache::Entry<'a>,
     path: &PathBuf,
-    transform: &config::Transform,
+    transform: &Transform,
 ) -> Result<cache::Reference> {
     let bytes = fs::read(&path).await?;
 
-    let mut hasher = sha1::Sha1::new();
+    let mut hasher = Sha1::new();
     hasher.update(&bytes);
 
-    let hash = hasher.digest().bytes();
+    let mut hash = [0u8; 20];
+    hash.copy_from_slice(&hasher.finalize());
 
     use cache::UpdateResult::*;
     match cache.try_update(cache::Token::Sha1(hash)) {

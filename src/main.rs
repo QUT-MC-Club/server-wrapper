@@ -10,11 +10,14 @@ pub use config::Config;
 use executor::Executor;
 use status::StatusWriter;
 
+pub use crate::transform::Transform;
+
 mod cache;
 mod config;
 mod executor;
 mod source;
 mod status;
+mod transform;
 
 const CACHE_ROOT: &str = "wrapper_cache";
 
@@ -172,9 +175,13 @@ async fn prepare_destination(
     let stale_files = cache.drop_stale(cache_keys).await?;
 
     for (_, source_set) in &destination.sources {
+        let transform = match &source_set.transform {
+            None => Transform::Direct,
+            Some(config::Transform::Unzip { unzip }) => { Transform::Unzip { unzip: unzip.clone() }},
+        };
         for (key, source) in &source_set.sources {
             let cache_entry = cache.entry(key.clone());
-            match source::load(ctx, cache_entry, source, &source_set.transform).await {
+            match source::load(ctx, cache_entry, source, &transform).await {
                 Ok(reference) => cache_files.push((key.clone(), reference)),
                 Err(err) => {
                     eprintln!("failed to load {}: {:?}! excluding.", key, err);

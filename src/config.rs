@@ -80,10 +80,10 @@ where
 }
 
 async fn write_config<T: Serialize>(path: &Path, config: &T) -> io::Result<()> {
-    let mut file = File::create(path).await?;
+    let string = toml::to_string(config).expect("malformed config");
 
-    let bytes = toml::to_vec(config).expect("malformed config");
-    file.write_all(&bytes).await?;
+    let mut file = File::create(path).await?;
+    file.write_all(string.as_bytes()).await?;
 
     Ok(())
 }
@@ -91,8 +91,8 @@ async fn write_config<T: Serialize>(path: &Path, config: &T) -> io::Result<()> {
 async fn read_config<T: DeserializeOwned>(path: &Path) -> io::Result<T> {
     let mut file = File::open(path).await?;
 
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes).await?;
+    let mut string = String::new();
+    file.read_to_string(&mut string).await?;
 
-    Ok(toml::from_slice::<T>(&bytes).expect("malformed config"))
+    Ok(toml::from_str::<T>(&string).expect("malformed config"))
 }

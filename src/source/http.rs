@@ -1,10 +1,10 @@
-use crate::{cache, config, source, Error, Result};
+use crate::{cache, source, Error, Result, Transform};
 
 pub async fn load<'a>(
     client: &reqwest::Client,
     cache: cache::Entry<'a>,
     url: &str,
-    transform: &config::Transform,
+    transform: &Transform,
 ) -> Result<cache::Reference> {
     let response = client.get(url).send().await?;
 

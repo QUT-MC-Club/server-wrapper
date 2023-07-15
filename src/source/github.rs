@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use crate::{cache, config, source, Error, Result};
+use crate::{cache, Error, Result, source, Transform};
 
 pub async fn load<'a>(
     client: &Client,
@@ -11,7 +11,7 @@ pub async fn load<'a>(
     owner: &str,
     repository: &str,
     filter: Filter,
-    transform: &config::Transform,
+    transform: &Transform,
 ) -> Result<cache::Reference> {
     let latest_artifact = get_latest_artifact(client, owner, repository, filter).await?;
 
@@ -190,12 +190,14 @@ impl Client {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 struct WorkflowRunsResponse {
     total_count: usize,
     workflow_runs: Vec<WorkflowRun>,
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 struct WorkflowRun {
     id: usize,
     name: String,
@@ -207,12 +209,14 @@ struct WorkflowRun {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 struct ArtifactsResponse {
     total_count: usize,
     artifacts: Vec<Artifact>,
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 struct Artifact {
     id: usize,
     node_id: String,
