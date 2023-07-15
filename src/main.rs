@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -165,15 +165,6 @@ async fn prepare_destination(
 
     let mut cache = cache::Loader::open(&cache_root).await?;
 
-    let cache_keys: HashSet<String> = destination
-        .sources
-        .values()
-        .flat_map(|source_set| source_set.sources.keys())
-        .map(|s| s.to_owned())
-        .collect();
-
-    let stale_files = cache.drop_stale(cache_keys).await?;
-
     for (_, source_set) in &destination.sources {
         let transform = match &source_set.transform {
             None => Transform::Direct,
@@ -191,6 +182,8 @@ async fn prepare_destination(
             }
         }
     }
+
+    let stale_files = cache.drop_stale().await?;
 
     cache.close().await?;
 

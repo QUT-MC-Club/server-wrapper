@@ -31,6 +31,7 @@ async fn write_cache_index<P: AsRef<Path>>(path: P, index: &Index) -> io::Result
 pub struct Loader {
     root: PathBuf,
     entries: HashMap<String, IndexEntry>,
+    used_entries: HashSet<String>,
 }
 
 impl Loader {
@@ -47,7 +48,7 @@ impl Loader {
             .map(|entry| (entry.key.clone(), entry))
             .collect();
 
-        Ok(Loader { root, entries })
+        Ok(Loader { root, entries, used_entries: HashSet::new() })
     }
 
     pub fn entry<K: Into<String>>(&mut self, key: K) -> Entry {
@@ -57,6 +58,8 @@ impl Loader {
             .get(&key)
             .map(|entry| entry.token.clone())
             .unwrap_or(Token::Unknown);
+
+        self.used_entries.insert(key.clone());
 
         Entry {
             loader: self,
@@ -125,11 +128,11 @@ impl Loader {
         self.root.join(key)
     }
 
-    pub async fn drop_stale(&mut self, used: HashSet<String>) -> io::Result<Vec<Reference>> {
+    pub async fn drop_stale(&mut self) -> io::Result<Vec<Reference>> {
         let stale_entries: Vec<String> = self
             .entries
             .values()
-            .filter(|entry| !used.contains(&entry.key))
+            .filter(|entry| !self.used_entries.contains(&entry.key))
             .map(|entry| entry.key.clone())
             .collect();
 
