@@ -30,6 +30,7 @@ async fn write_cache_index<P: AsRef<Path>>(path: P, index: &Index) -> io::Result
 
 pub struct Loader {
     root: PathBuf,
+    old_entries: HashMap<String, IndexEntry>,
     entries: HashMap<String, IndexEntry>,
     used_entries: HashSet<String>,
 }
@@ -42,13 +43,15 @@ impl Loader {
         }
 
         let index = read_cache_index(&root.join("index.json")).await?;
-        let entries = index
+        let entries: HashMap<String, IndexEntry> = index
             .entries
             .into_iter()
             .map(|entry| (entry.key.clone(), entry))
             .collect();
 
-        Ok(Loader { root, entries, used_entries: HashSet::new() })
+        let old_entries = entries.clone();
+
+        Ok(Loader { root, old_entries, entries, used_entries: HashSet::new() })
     }
 
     pub fn entry<K: Into<String>>(&mut self, key: K) -> Entry {
@@ -68,10 +71,27 @@ impl Loader {
         }
     }
 
-    pub async fn close(self) -> io::Result<()> {
+    pub async fn close(mut self) -> io::Result<Vec<Reference>> {
+        let stale_entries: Vec<String> = self
+            .entries
+            .values()
+            .filter(|entry| !self.used_entries.contains(&entry.key))
+            .map(|entry| entry.key.clone())
+            .collect();
+        for key in stale_entries {
+            let entry = self.entries.remove(&key).unwrap();
+            let reference = self.reference_for(&entry);
+            fs::remove_file(&reference.path).await?;
+        }
+
+        let old_files = self.old_entries.clone().values()
+            .map(|entry| self.reference_for(&entry))
+            .collect();
+
         let entries = self.entries.into_values().collect();
         write_cache_index(&self.root.join("index.json"), &Index { entries }).await?;
-        Ok(())
+
+        Ok(old_files)
     }
 
     async fn update_entry(
@@ -126,26 +146,6 @@ impl Loader {
     #[inline]
     fn path_for(&self, key: &str) -> PathBuf {
         self.root.join(key)
-    }
-
-    pub async fn drop_stale(&mut self) -> io::Result<Vec<Reference>> {
-        let stale_entries: Vec<String> = self
-            .entries
-            .values()
-            .filter(|entry| !self.used_entries.contains(&entry.key))
-            .map(|entry| entry.key.clone())
-            .collect();
-
-        let mut stale_references = Vec::with_capacity(stale_entries.len());
-        for key in stale_entries {
-            let entry = self.entries.remove(&key).unwrap();
-            let reference = self.reference_for(&entry);
-            fs::remove_file(&reference.path).await?;
-
-            stale_references.push(reference);
-        }
-
-        Ok(stale_references)
     }
 }
 

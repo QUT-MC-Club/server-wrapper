@@ -183,27 +183,25 @@ async fn prepare_destination(
         }
     }
 
-    let stale_files = cache.drop_stale().await?;
-
-    cache.close().await?;
+    let old_files = cache.close().await?;
 
     Ok(PreparedDestination {
         root: destination.path.clone(),
         cache_files,
-        stale_files,
+        old_files,
     })
 }
 
 struct PreparedDestination {
     root: PathBuf,
     cache_files: Vec<(String, cache::Reference)>,
-    stale_files: Vec<cache::Reference>,
+    old_files: Vec<cache::Reference>,
 }
 
 impl PreparedDestination {
     async fn apply(&self) -> Result<()> {
         if self.root.exists() {
-            for reference in &self.stale_files {
+            for reference in &self.old_files {
                 reference.remove_from(&self.root).await?;
             }
         } else {
