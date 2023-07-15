@@ -5,6 +5,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  rust_target: x86_64-unknown-linux-musl
 
 jobs:
   build:
@@ -14,19 +15,19 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install musl dependencies
+      if: ${{ env.rust_target == 'x86_64-unknown-linux-musl' }}
       run: sudo apt-get update && sudo apt-get install musl-tools
     - name: Install rust toolchain
       id: init
       run: |
         rustup toolchain install stable --profile minimal
-        rustup target add x86_64-unknown-linux-musl
+        rustup target add "$rust_target"
         echo "##[set-output name=sha7;]$(echo ${GITHUB_SHA:0:7})"
     - uses: Swatinem/rust-cache@v2
     - name: Build
-      run: cargo build --verbose --release --target x86_64-unknown-linux-musl
+      run: cargo build --verbose --release --target "$rust_target"
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
-        name: server-wrapper-${{ steps.init.outputs.sha7 }}
-        path: target/x86_64-unknown-linux-musl/release/server-wrapper
-
+        name: server-wrapper-${{ steps.init.outputs.sha7 }}-${{ env.rust_target }}
+        path: target/${{ env.rust_target }}/release/server-wrapper
