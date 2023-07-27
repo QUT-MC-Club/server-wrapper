@@ -18,8 +18,6 @@ pub async fn load<'a>(
         use cache::UpdateResult::*;
         match cache.try_update(cache::Token::Sha512(hash)) {
             Mismatch(updater) => {
-                let name = format!("{}.zip", name);
-
                 let response = client.get(&url).await?;
                 let bytes = response.bytes().await?;
                 let file = source::File { name, bytes };
@@ -44,6 +42,8 @@ async fn resolve_version(
 ) -> Result<Option<(String, String, String)>> {
     let mut versions = client.get_versions(project_id, game_version).await?;
     versions.sort_by_key(|v| v.date_published);
+    // try latest versions first
+    versions.reverse();
     for version in versions {
         let file = version.files.iter().filter(|f| f.primary).next();
         if let Some(file) = file {
@@ -83,7 +83,7 @@ impl Client {
     ) -> Result<Vec<ProjectVersion>> {
         let url = if let Some(game_version) = game_version {
             format!(
-                "{}/v2/project/{}/version?game_version={}",
+                "{}/v2/project/{}/version?game_versions=[\"{}\"]",
                 Client::BASE_URL,
                 project_id,
                 game_version
