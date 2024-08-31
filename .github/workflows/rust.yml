@@ -27,7 +27,8 @@ jobs:
     - name: Build
       run: cargo build --verbose --release --target "$rust_target"
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3.1.0
+      uses: actions/upload-artifact@v4
       with:
         name: server-wrapper-${{ steps.init.outputs.sha7 }}-${{ env.rust_target }}
         path: target/${{ env.rust_target }}/release/server-wrapper
+        retention-days: 90
