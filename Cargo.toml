@@ -1,8 +1,8 @@
 [package]
 name = "server-wrapper"
 version = "0.1.0"
-authors = ["Gegy <gegy.dev@gmail.com>"]
-edition = "2021"
+authors = ["ZekeZ <contact@zekez.dev>","Gegy <gegy.dev@gmail.com>"]
+edition = "2024"
 
 [profile.release]
 strip = "symbols"
