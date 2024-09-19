@@ -2,7 +2,7 @@
 name = "server-wrapper"
 version = "0.1.0"
 authors = ["ZekeZ <contact@zekez.dev>","Gegy <gegy.dev@gmail.com>"]
-edition = "2024"
+edition = "2021"
 
 [profile.release]
 strip = "symbols"
