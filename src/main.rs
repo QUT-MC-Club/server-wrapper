@@ -33,7 +33,7 @@ pub async fn main() {
     let config_path = std::env::args().nth(1).unwrap_or_else(|| "config.toml".to_owned());
     let destinations_path = std::env::args().nth(2).unwrap_or_else(|| "destinations.toml".to_owned());
 
-    loop {
+    // loop { - disabled due to pterodactyl
         let config: Config = config::load(&config_path).await;
         let destinations: config::Destinations = config::load(&destinations_path).await;
 
@@ -111,21 +111,21 @@ pub async fn main() {
             println!("server closed");
         }
 
-        let interval = Instant::now() - start;
-        if interval < min_restart_interval {
-            println!("server restarted very quickly! waiting a bit...");
+        // let interval = Instant::now() - start;
+        // if interval < min_restart_interval {
+        //     println!("server restarted very quickly! waiting a bit...");
 
-            let delay = min_restart_interval - interval;
-            ctx.status.write(format!(
-                "Server restarted too quickly! Waiting for {} seconds...",
-                delay.as_secs()
-            ));
+        //     let delay = min_restart_interval - interval;
+        //     ctx.status.write(format!(
+        //         "Server restarted too quickly! Waiting for {} seconds...",
+        //         delay.as_secs()
+        //     ));
 
-            tokio::time::sleep(delay.into()).await;
-        } else {
-            ctx.status.write("Server closed! Restarting...");
-        }
-    }
+        //     tokio::time::sleep(delay.into()).await;
+        // } else {
+        //     ctx.status.write("Server closed! Restarting...");
+        // }
+    // }
 }
 
 async fn prepare_destinations(
