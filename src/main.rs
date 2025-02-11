@@ -33,98 +33,79 @@ pub async fn main() {
     let config_path = std::env::args().nth(1).unwrap_or_else(|| "config.toml".to_owned());
     let destinations_path = std::env::args().nth(2).unwrap_or_else(|| "destinations.toml".to_owned());
 
-    loop {
-        let config: Config = config::load(&config_path).await;
-        let destinations: config::Destinations = config::load(&destinations_path).await;
+    let config: Config = config::load(&config_path).await;
+    let destinations: config::Destinations = config::load(&destinations_path).await;
 
-        let min_restart_interval = Duration::from_secs(config.min_restart_interval_seconds);
+    let status = match config.status.webhook {
+        Some(webhook) => StatusWriter::from(status::webhook::Client::open(webhook)),
+        None => StatusWriter::none(),
+    };
 
-        let status = match config.status.webhook {
-            Some(webhook) => StatusWriter::from(status::webhook::Client::open(webhook)),
-            None => StatusWriter::none(),
-        };
+    let client = reqwest::Client::builder()
+        .gzip(true)
+        .user_agent("server-wrapper (https://github.com/NucleoidMC/server-wrapper)")
+        .build()
+        .unwrap();
+    let github = source::github::Client::new(config.tokens.github.clone());
+    let modrinth = source::modrinth::Client::new(client.clone());
+    let ctx = Context {
+        github,
+        modrinth,
+        client,
+        status,
+    };
 
-        let client = reqwest::Client::builder()
-            .gzip(true)
-            .user_agent("server-wrapper (https://github.com/NucleoidMC/server-wrapper)")
-            .build()
-            .unwrap();
-        let github = source::github::Client::new(config.tokens.github.clone());
-        let modrinth = source::modrinth::Client::new(client.clone());
-        let ctx = Context {
-            github,
-            modrinth,
-            client,
-            status,
-        };
+    let destinations: Vec<PreparedDestination> =
+        prepare_destinations(&ctx, destinations.destinations).await;
 
-        let destinations: Vec<PreparedDestination> =
-            prepare_destinations(&ctx, destinations.destinations).await;
+    let changed_sources: Vec<_> = destinations
+        .iter()
+        .flat_map(|destination| destination.cache_files.iter())
+        .filter(|(_, source)| source.changed())
+        .map(|(name, _)| name.to_owned())
+        .collect();
 
-        let changed_sources: Vec<_> = destinations
-            .iter()
-            .flat_map(|destination| destination.cache_files.iter())
-            .filter(|(_, source)| source.changed())
-            .map(|(name, _)| name.to_owned())
-            .collect();
+    for destination in destinations {
+        destination
+            .apply()
+            .await
+            .expect("failed to apply destination");
+    }
 
-        for destination in destinations {
-            destination
-                .apply()
-                .await
-                .expect("failed to apply destination");
-        }
+    let payload = if !changed_sources.is_empty() {
+        let mut payload = status::Payload::new_sanitized(String::new());
 
-        let payload = if !changed_sources.is_empty() {
-            let mut payload = status::Payload::new_sanitized(String::new());
+        let description = format!(
+            "Here's what changed:\n{}",
+            changed_sources
+                .into_iter()
+                .map(|source| format!("- `{}`", source))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
 
-            let description = format!(
-                "Here's what changed:\n{}",
-                changed_sources
-                    .into_iter()
-                    .map(|source| format!("- `{}`", source))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            );
+        payload.embeds.push(status::Embed {
+            title: Some("Server starting up...".to_owned()),
+            ty: status::EmbedType::Rich,
+            description: Some(description),
+            url: None,
+            color: Some(0x00FF00),
+        });
 
-            payload.embeds.push(status::Embed {
-                title: Some("Server starting up...".to_owned()),
-                ty: status::EmbedType::Rich,
-                description: Some(description),
-                url: None,
-                color: Some(0x00FF00),
-            });
+        payload
+    } else {
+        status::Payload::from("Starting up server...")
+    };
 
-            payload
-        } else {
-            status::Payload::from("Starting up server...")
-        };
+    ctx.status.write(payload);
 
-        ctx.status.write(payload);
+    let start = Instant::now();
 
-        let start = Instant::now();
-
-        let mut executor = Executor::new(config.run);
-        if let Err(err) = executor.run().await {
-            eprintln!("server exited with error: {:?}", err);
-        } else {
-            println!("server closed");
-        }
-
-        let interval = Instant::now() - start;
-        if interval < min_restart_interval {
-            println!("server restarted very quickly! waiting a bit...");
-
-            let delay = min_restart_interval - interval;
-            ctx.status.write(format!(
-                "Server restarted too quickly! Waiting for {} seconds...",
-                delay.as_secs()
-            ));
-
-            tokio::time::sleep(delay.into()).await;
-        } else {
-            ctx.status.write("Server closed! Restarting...");
-        }
+    let mut executor = Executor::new(config.run);
+    if let Err(err) = executor.run().await {
+        eprintln!("server exited with error: {:?}", err);
+    } else {
+        println!("server closed");
     }
 }
 
